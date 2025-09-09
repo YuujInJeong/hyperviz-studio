@@ -4,7 +4,7 @@ import { useDataStore } from '@/store/dataStore';
 import { Sparkles, Download } from 'lucide-react';
 
 export function SampleDataGenerator() {
-  const { setRawData, setParsedData } = useDataStore();
+  const { setRawData, setParsedData, setVisualizationMapping, setActiveTab } = useDataStore();
 
   const generateLinearData = () => {
     const data = [];
@@ -28,6 +28,17 @@ export function SampleDataGenerator() {
       return { x, y, z, category };
     });
     setParsedData(rows);
+    
+    // Auto-set visualization mapping
+    setVisualizationMapping({
+      x: 'x',
+      y: 'y',
+      z: 'z',
+      color: 'category'
+    });
+    
+    // Auto-navigate to visualization tab
+    setTimeout(() => setActiveTab('visualization'), 100);
   };
 
   const generateNonLinearData = () => {
@@ -54,6 +65,18 @@ export function SampleDataGenerator() {
       return { temperature, humidity, pressure, wind_speed, rainfall };
     });
     setParsedData(rows);
+    
+    // Auto-set visualization mapping
+    setVisualizationMapping({
+      x: 'temperature',
+      y: 'humidity',
+      z: 'pressure',
+      color: 'wind_speed',
+      size: 'rainfall'
+    });
+    
+    // Auto-navigate to visualization tab
+    setTimeout(() => setActiveTab('visualization'), 100);
   };
 
   const generateHighDimensionalData = () => {
@@ -87,6 +110,18 @@ export function SampleDataGenerator() {
       };
     });
     setParsedData(rows);
+    
+    // Auto-set visualization mapping
+    setVisualizationMapping({
+      x: 'var1',
+      y: 'var2',
+      z: 'var3',
+      color: 'var4',
+      size: 'target'
+    });
+    
+    // Auto-navigate to visualization tab
+    setTimeout(() => setActiveTab('visualization'), 100);
   };
 
   const sampleDatasets = [
@@ -145,7 +180,7 @@ export function SampleDataGenerator() {
                 className="w-full"
               >
                 <Download className="h-4 w-4 mr-2" />
-                생성하기
+                생성하고 시각화 보기
               </Button>
             </div>
           ))}

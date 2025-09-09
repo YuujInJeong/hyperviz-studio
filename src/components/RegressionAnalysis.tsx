@@ -128,6 +128,98 @@ export function RegressionAnalysis() {
     return [residualPlot, zeroLine];
   };
 
+  const generateQQPlot = () => {
+    if (!regressionResult || !parsedData.length) return null;
+
+    const { residuals } = regressionResult;
+    const sortedResiduals = [...residuals].sort((a, b) => a - b);
+    const n = sortedResiduals.length;
+    
+    // Calculate theoretical quantiles (normal distribution)
+    const theoreticalQuantiles = [];
+    for (let i = 0; i < n; i++) {
+      const p = (i + 0.5) / n;
+      // Approximate inverse normal CDF
+      const z = Math.sqrt(2) * Math.sqrt(-Math.log(1 - p));
+      theoreticalQuantiles.push(z);
+    }
+
+    // Q-Q Plot
+    const qqPlot = {
+      x: theoreticalQuantiles,
+      y: sortedResiduals,
+      mode: 'markers',
+      type: 'scatter',
+      name: 'Q-Q Plot',
+      marker: {
+        color: '#10B981',
+        size: 8,
+        line: { width: 1, color: 'white' }
+      }
+    };
+
+    // Perfect normal line
+    const minQ = Math.min(...theoreticalQuantiles);
+    const maxQ = Math.max(...theoreticalQuantiles);
+    const perfectLine = {
+      x: [minQ, maxQ],
+      y: [minQ, maxQ],
+      mode: 'lines',
+      type: 'scatter',
+      name: 'Perfect Normal',
+      line: { color: '#EF4444', dash: 'dash' }
+    };
+
+    return [qqPlot, perfectLine];
+  };
+
+  const generateCooksDistance = () => {
+    if (!regressionResult || !parsedData.length) return null;
+
+    const { residuals, predictions } = regressionResult;
+    const n = residuals.length;
+    const p = regressionResult.coefficients.length; // including intercept
+    
+    // Calculate Cook's Distance for each observation
+    const cooksDistances = [];
+    const mse = regressionResult.mse;
+    
+    for (let i = 0; i < n; i++) {
+      // Simplified Cook's Distance calculation
+      const residual = residuals[i];
+      const leverage = 1 / n; // Simplified leverage
+      const cooksD = (residual * residual * leverage) / (p * mse);
+      cooksDistances.push(cooksD);
+    }
+
+    // Cook's Distance plot
+    const cooksPlot = {
+      x: Array.from({ length: n }, (_, i) => i + 1),
+      y: cooksDistances,
+      mode: 'markers',
+      type: 'scatter',
+      name: 'Cook\'s Distance',
+      marker: {
+        color: '#F59E0B',
+        size: 8,
+        line: { width: 1, color: 'white' }
+      }
+    };
+
+    // Threshold line (4/n)
+    const threshold = 4 / n;
+    const thresholdLine = {
+      x: [1, n],
+      y: [threshold, threshold],
+      mode: 'lines',
+      type: 'scatter',
+      name: 'Threshold (4/n)',
+      line: { color: '#EF4444', dash: 'dash' }
+    };
+
+    return [cooksPlot, thresholdLine];
+  };
+
   if (!parsedData.length) {
     return (
       <Card className="data-card">
@@ -254,14 +346,17 @@ export function RegressionAnalysis() {
 
               {/* Coefficients Table */}
               <div>
-                <h4 className="font-semibold mb-3">회귀 계수</h4>
+                <h4 className="font-semibold mb-3">회귀 계수 및 통계적 유의성</h4>
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm border-collapse">
                     <thead>
                       <tr className="border-b">
                         <th className="text-left p-2">변수</th>
                         <th className="text-right p-2">계수</th>
-                        <th className="text-right p-2">해석</th>
+                        <th className="text-right p-2">표준오차</th>
+                        <th className="text-right p-2">t값</th>
+                        <th className="text-right p-2">p값</th>
+                        <th className="text-right p-2">유의성</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -270,23 +365,54 @@ export function RegressionAnalysis() {
                         <td className="p-2 text-right font-mono">
                           {regressionResult.coefficients[0].toFixed(4)}
                         </td>
-                        <td className="p-2 text-right text-muted-foreground">
-                          기본값
+                        <td className="p-2 text-right font-mono">
+                          {regressionResult.standardErrors[0]?.toFixed(4) || 'N/A'}
+                        </td>
+                        <td className="p-2 text-right font-mono">
+                          {regressionResult.tValues[0]?.toFixed(3) || 'N/A'}
+                        </td>
+                        <td className="p-2 text-right font-mono">
+                          {regressionResult.pValues[0]?.toFixed(4) || 'N/A'}
+                        </td>
+                        <td className="p-2 text-right">
+                          <Badge variant={regressionResult.pValues[0] < 0.05 ? "default" : "secondary"}>
+                            {regressionResult.pValues[0] < 0.05 ? '유의함' : '비유의함'}
+                          </Badge>
                         </td>
                       </tr>
-                      {independentVariables.map((variable, index) => (
-                        <tr key={variable} className="border-b">
-                          <td className="p-2 font-medium">{variable}</td>
-                          <td className="p-2 text-right font-mono">
-                            {regressionResult.coefficients[index + 1].toFixed(4)}
-                          </td>
-                          <td className="p-2 text-right text-muted-foreground">
-                            {regressionResult.coefficients[index + 1] > 0 ? '양의 영향' : '음의 영향'}
-                          </td>
-                        </tr>
-                      ))}
+                      {independentVariables.map((variable, index) => {
+                        const coefIndex = index + 1;
+                        const pValue = regressionResult.pValues[coefIndex];
+                        const isSignificant = pValue < 0.05;
+                        return (
+                          <tr key={variable} className="border-b">
+                            <td className="p-2 font-medium">{variable}</td>
+                            <td className="p-2 text-right font-mono">
+                              {regressionResult.coefficients[coefIndex].toFixed(4)}
+                            </td>
+                            <td className="p-2 text-right font-mono">
+                              {regressionResult.standardErrors[coefIndex]?.toFixed(4) || 'N/A'}
+                            </td>
+                            <td className="p-2 text-right font-mono">
+                              {regressionResult.tValues[coefIndex]?.toFixed(3) || 'N/A'}
+                            </td>
+                            <td className="p-2 text-right font-mono">
+                              {pValue?.toFixed(4) || 'N/A'}
+                            </td>
+                            <td className="p-2 text-right">
+                              <Badge variant={isSignificant ? "default" : "secondary"}>
+                                {isSignificant ? '유의함' : '비유의함'}
+                              </Badge>
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
+                </div>
+                <div className="mt-3 text-xs text-muted-foreground">
+                  <p>• p값 &lt; 0.05인 경우 통계적으로 유의함 (α = 0.05)</p>
+                  <p>• F통계량: {regressionResult.fStatistic.toFixed(4)}</p>
                 </div>
               </div>
             </CardContent>
@@ -345,6 +471,54 @@ export function RegressionAnalysis() {
                       style={{ width: '100%', height: '100%' }}
                     />
                   </div>
+                </div>
+
+                {/* Q-Q Plot */}
+                <div>
+                  <h4 className="font-semibold mb-3">Q-Q Plot (정규성 검정)</h4>
+                  <div className="h-[400px]">
+                    <Plot
+                      data={generateQQPlot() || []}
+                      layout={{
+                        title: '',
+                        xaxis: { title: '이론적 분위수' },
+                        yaxis: { title: '표본 분위수' },
+                        plot_bgcolor: 'rgba(0,0,0,0)',
+                        paper_bgcolor: 'rgba(0,0,0,0)',
+                        font: { family: 'Inter, sans-serif' },
+                        margin: { l: 50, r: 50, t: 30, b: 50 }
+                      }}
+                      config={{ responsive: true, displayModeBar: false }}
+                      style={{ width: '100%', height: '100%' }}
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    점들이 대각선에 가까울수록 잔차가 정규분포를 따름
+                  </p>
+                </div>
+
+                {/* Cook's Distance */}
+                <div>
+                  <h4 className="font-semibold mb-3">Cook's Distance (영향점 탐지)</h4>
+                  <div className="h-[400px]">
+                    <Plot
+                      data={generateCooksDistance() || []}
+                      layout={{
+                        title: '',
+                        xaxis: { title: '관측값 번호' },
+                        yaxis: { title: 'Cook\'s Distance' },
+                        plot_bgcolor: 'rgba(0,0,0,0)',
+                        paper_bgcolor: 'rgba(0,0,0,0)',
+                        font: { family: 'Inter, sans-serif' },
+                        margin: { l: 50, r: 50, t: 30, b: 50 }
+                      }}
+                      config={{ responsive: true, displayModeBar: false }}
+                      style={{ width: '100%', height: '100%' }}
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    빨간선(4/n) 위의 점들은 영향점으로 의심됨
+                  </p>
                 </div>
               </div>
 

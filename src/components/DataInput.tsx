@@ -16,10 +16,14 @@ export function DataInput() {
     parsedData, 
     headers, 
     isTransposed, 
+    removeOutliers,
+    standardize,
+    normalize,
     error,
     setRawData, 
     setParsedData, 
     setIsTransposed,
+    setProcessingOptions,
     setError,
     setActiveTab 
   } = useDataStore();
@@ -224,15 +228,59 @@ x,y,z
           </div>
 
           {/* Options */}
-          <div className="flex items-center space-x-2">
-            <Switch
-              id="transpose"
-              checked={isTransposed}
-              onCheckedChange={setIsTransposed}
-            />
-            <Label htmlFor="transpose" className="text-sm">
-              행과 열 바꾸기 (전치)
-            </Label>
+          <div className="space-y-3">
+            <div className="flex items-center space-x-2">
+              <Switch
+                id="transpose"
+                checked={isTransposed}
+                onCheckedChange={setIsTransposed}
+              />
+              <Label htmlFor="transpose" className="text-sm">
+                행과 열 바꾸기 (전치)
+              </Label>
+            </div>
+            
+            {/* Data Preprocessing Options */}
+            <div className="border-t pt-3">
+              <h4 className="font-semibold text-sm mb-2">데이터 전처리 옵션</h4>
+              <div className="space-y-2">
+                <div className="flex items-center space-x-2">
+                  <Switch
+                    id="removeOutliers"
+                    checked={removeOutliers}
+                    onCheckedChange={(checked) => setProcessingOptions({ removeOutliers: checked })}
+                  />
+                  <Label htmlFor="removeOutliers" className="text-sm">
+                    이상치 제거 (IQR 방법)
+                  </Label>
+                </div>
+                
+                <div className="flex items-center space-x-2">
+                  <Switch
+                    id="standardize"
+                    checked={standardize}
+                    onCheckedChange={(checked) => setProcessingOptions({ standardize: checked })}
+                  />
+                  <Label htmlFor="standardize" className="text-sm">
+                    표준화 (평균 0, 표준편차 1)
+                  </Label>
+                </div>
+                
+                <div className="flex items-center space-x-2">
+                  <Switch
+                    id="normalize"
+                    checked={normalize}
+                    onCheckedChange={(checked) => setProcessingOptions({ normalize: checked })}
+                  />
+                  <Label htmlFor="normalize" className="text-sm">
+                    정규화 (0-1 범위)
+                  </Label>
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground mt-2">
+                전처리 옵션을 변경한 후 데이터를 다시 파싱해주세요.
+              </p>
+            </div>
           </div>
 
           {/* Parse Button */}
@@ -297,8 +345,12 @@ x,y,z
             </div>
             
             <div className="mt-4 flex justify-end">
-              <Button onClick={handleNext} disabled={parsedData.length === 0}>
-                다음 단계
+              <Button 
+                onClick={handleNext} 
+                disabled={parsedData.length === 0}
+                className="bg-primary hover:bg-primary/90"
+              >
+                시각화로 이동 →
               </Button>
             </div>
           </CardContent>

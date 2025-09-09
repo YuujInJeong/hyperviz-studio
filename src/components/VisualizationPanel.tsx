@@ -235,14 +235,14 @@ export function VisualizationPanel() {
             <div>
               <Label>Z축 (선택)</Label>
               <Select 
-                value={visualizationMapping.z || ''} 
-                onValueChange={(value) => setVisualizationMapping({ z: value || undefined })}
+                value={visualizationMapping.z || 'none'} 
+                onValueChange={(value) => setVisualizationMapping({ z: value === 'none' ? undefined : value })}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Z축 변수 선택" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">없음</SelectItem>
+                  <SelectItem value="none">없음</SelectItem>
                   {headers.map(header => (
                     <SelectItem key={header} value={header}>{header}</SelectItem>
                   ))}
@@ -254,14 +254,14 @@ export function VisualizationPanel() {
             <div>
               <Label>색상 (선택)</Label>
               <Select 
-                value={visualizationMapping.color || ''} 
-                onValueChange={(value) => setVisualizationMapping({ color: value || undefined })}
+                value={visualizationMapping.color || 'none'} 
+                onValueChange={(value) => setVisualizationMapping({ color: value === 'none' ? undefined : value })}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="색상 변수 선택" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">없음</SelectItem>
+                  <SelectItem value="none">없음</SelectItem>
                   {headers.map(header => (
                     <SelectItem key={header} value={header}>{header}</SelectItem>
                   ))}
@@ -273,14 +273,14 @@ export function VisualizationPanel() {
             <div>
               <Label>크기 (선택)</Label>
               <Select 
-                value={visualizationMapping.size || ''} 
-                onValueChange={(value) => setVisualizationMapping({ size: value || undefined })}
+                value={visualizationMapping.size || 'none'} 
+                onValueChange={(value) => setVisualizationMapping({ size: value === 'none' ? undefined : value })}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="크기 변수 선택" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">없음</SelectItem>
+                  <SelectItem value="none">없음</SelectItem>
                   {headers.map(header => (
                     <SelectItem key={header} value={header}>{header}</SelectItem>
                   ))}
@@ -329,7 +329,7 @@ export function VisualizationPanel() {
       )}
 
       {/* Visualization */}
-      {plotData.length > 0 && (
+      {plotData.length > 0 ? (
         <Card className="data-card">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -362,6 +362,27 @@ export function VisualizationPanel() {
                 회귀 분석으로 이동
               </Button>
             </div>
+          </CardContent>
+        </Card>
+      ) : (
+        <Card className="data-card">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Layers className="h-5 w-5 text-accent" />
+              데이터 시각화
+            </CardTitle>
+            <CardDescription>
+              시각화할 변수들을 선택해주세요.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="text-center py-12">
+            <BarChart3 className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+            <p className="text-muted-foreground mb-4">
+              X축과 Y축 변수를 선택하면 시각화가 표시됩니다.
+            </p>
+            <p className="text-sm text-muted-foreground">
+              최소 2개 변수를 선택해야 그래프가 표시됩니다.
+            </p>
           </CardContent>
         </Card>
       )}

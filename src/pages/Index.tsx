@@ -2,6 +2,7 @@ import { useDataStore } from '@/store/dataStore';
 import { DataInput } from '@/components/DataInput';
 import { VisualizationPanel } from '@/components/VisualizationPanel';
 import { RegressionAnalysis } from '@/components/RegressionAnalysis';
+import { DiagnosticsPanel } from '@/components/DiagnosticsPanel';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -72,60 +73,13 @@ const Index = () => {
       {/* Main Content */}
       <main className="container mx-auto px-4 py-8">
         {/* Hero Section */}
-        <div className="text-center mb-12 animate-fade-in">
-          <h2 className="text-4xl font-bold mb-4">
-            강력한 데이터 분석을 
-            <span className="gradient-text ml-2">브라우저에서</span>
+        <div className="text-center mb-8 animate-fade-in">
+          <h2 className="text-3xl font-bold mb-3">
+            브라우저에서 하는 <span className="gradient-text">데이터 분석</span>
           </h2>
-          <p className="text-xl text-muted-foreground max-w-3xl mx-auto mb-6">
-            최대 100개 데이터 포인트의 다차원 시각화와 선형회귀 분석을 
-            완전히 클라이언트 사이드에서 수행하세요. 개인정보 보호가 보장됩니다.
+          <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+            다차원 시각화와 선형회귀 분석을 완전히 클라이언트 사이드에서 수행하세요.
           </p>
-          
-          {/* Feature Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl mx-auto mb-8">
-            <Card className="data-card text-left">
-              <CardHeader className="pb-3">
-                <div className="h-10 w-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center mb-2">
-                  <BarChart3 className="h-5 w-5 text-white" />
-                </div>
-                <CardTitle className="text-lg">다차원 시각화</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <CardDescription>
-                  최대 4차원까지 직접 시각화, 5차원 이상은 슬라이더로 동적 제어
-                </CardDescription>
-              </CardContent>
-            </Card>
-
-            <Card className="data-card text-left">
-              <CardHeader className="pb-3">
-                <div className="h-10 w-10 bg-gradient-to-br from-purple-500 to-purple-600 rounded-lg flex items-center justify-center mb-2">
-                  <Calculator className="h-5 w-5 text-white" />
-                </div>
-                <CardTitle className="text-lg">고급 회귀 분석</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <CardDescription>
-                  다중 선형회귀, R², 진단 그래프 등 전문적인 통계 분석
-                </CardDescription>
-              </CardContent>
-            </Card>
-
-            <Card className="data-card text-left">
-              <CardHeader className="pb-3">
-                <div className="h-10 w-10 bg-gradient-to-br from-green-500 to-green-600 rounded-lg flex items-center justify-center mb-2">
-                  <Database className="h-5 w-5 text-white" />
-                </div>
-                <CardTitle className="text-lg">완전한 프라이버시</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <CardDescription>
-                  모든 처리가 브라우저에서 이루어져 데이터가 서버로 전송되지 않음
-                </CardDescription>
-              </CardContent>
-            </Card>
-          </div>
         </div>
 
         {/* Main Application */}
@@ -159,26 +113,7 @@ const Index = () => {
           </TabsContent>
 
           <TabsContent value="diagnostics" className="mt-0">
-            <Card className="data-card">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Activity className="h-5 w-5 text-accent" />
-                  모델 진단 (개발 중)
-                </CardTitle>
-                <CardDescription>
-                  고급 진단 기능이 곧 추가될 예정입니다.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="text-center py-12">
-                <BookOpen className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                <p className="text-muted-foreground mb-4">
-                  Q-Q Plot, Cook's Distance, VIF 등의 고급 진단 기능이 준비 중입니다.
-                </p>
-                <Button variant="outline" onClick={() => setActiveTab('regression')}>
-                  회귀 분석으로 돌아가기
-                </Button>
-              </CardContent>
-            </Card>
+            <DiagnosticsPanel />
           </TabsContent>
         </Tabs>
       </main>
@@ -186,7 +121,33 @@ const Index = () => {
       {/* Footer */}
       <footer className="border-t bg-card/80 backdrop-blur-sm mt-20">
         <div className="container mx-auto px-4 py-8">
-          <div className="text-center text-sm text-muted-foreground">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+            <div className="text-center">
+              <div className="h-8 w-8 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center mx-auto mb-2">
+                <BarChart3 className="h-4 w-4 text-white" />
+              </div>
+              <h4 className="font-semibold text-sm mb-1">다차원 시각화</h4>
+              <p className="text-xs text-muted-foreground">최대 4차원 직접 시각화, 5차원 이상 슬라이더 제어</p>
+            </div>
+            
+            <div className="text-center">
+              <div className="h-8 w-8 bg-gradient-to-br from-purple-500 to-purple-600 rounded-lg flex items-center justify-center mx-auto mb-2">
+                <Calculator className="h-4 w-4 text-white" />
+              </div>
+              <h4 className="font-semibold text-sm mb-1">고급 회귀 분석</h4>
+              <p className="text-xs text-muted-foreground">다중 선형회귀, R², 진단 그래프</p>
+            </div>
+            
+            <div className="text-center">
+              <div className="h-8 w-8 bg-gradient-to-br from-green-500 to-green-600 rounded-lg flex items-center justify-center mx-auto mb-2">
+                <Database className="h-4 w-4 text-white" />
+              </div>
+              <h4 className="font-semibold text-sm mb-1">완전한 프라이버시</h4>
+              <p className="text-xs text-muted-foreground">모든 처리가 브라우저에서 수행</p>
+            </div>
+          </div>
+          
+          <div className="text-center text-sm text-muted-foreground border-t pt-4">
             <p>
               DataViz Pro - 오픈 소스 데이터 분석 도구 | 
               <a href="#" className="ml-2 hover:text-primary transition-colors">
@@ -195,9 +156,6 @@ const Index = () => {
               <a href="#" className="ml-2 hover:text-primary transition-colors">
                 GitHub
               </a>
-            </p>
-            <p className="mt-2">
-              모든 데이터 처리는 브라우저에서 수행되며 외부로 전송되지 않습니다.
             </p>
           </div>
         </div>

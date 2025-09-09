@@ -124,6 +124,44 @@ export function SampleDataGenerator() {
     setTimeout(() => setActiveTab('visualization'), 100);
   };
 
+  const generateExtremeValueData = () => {
+    const data = [];
+    const header = 'small_values,large_values,negative_values,mixed_range,constant_col';
+    data.push(header);
+    
+    for (let i = 0; i < 30; i++) {
+      const small = Math.random() * 0.01; // 매우 작은 값
+      const large = Math.random() * 1000000; // 매우 큰 값
+      const negative = (Math.random() - 0.5) * 1000; // 음수 포함
+      const mixed = Math.random() < 0.5 ? Math.random() * 10 : Math.random() * 10000; // 혼합 범위
+      const constant = 42; // 상수 값
+      
+      data.push(`${small.toFixed(6)},${large.toFixed(0)},${negative.toFixed(2)},${mixed.toFixed(2)},${constant}`);
+    }
+    
+    const csvData = data.join('\n');
+    setRawData(csvData);
+    
+    // Auto-parse the data
+    const rows = data.slice(1).map(row => {
+      const [small_values, large_values, negative_values, mixed_range, constant_col] = row.split(',').map(Number);
+      return { small_values, large_values, negative_values, mixed_range, constant_col };
+    });
+    setParsedData(rows);
+    
+    // Auto-set visualization mapping
+    setVisualizationMapping({
+      x: 'small_values',
+      y: 'large_values',
+      z: 'negative_values',
+      color: 'mixed_range',
+      size: 'constant_col'
+    });
+    
+    // Auto-navigate to visualization tab
+    setTimeout(() => setActiveTab('visualization'), 100);
+  };
+
   const sampleDatasets = [
     {
       title: '선형 관계 데이터',
@@ -145,6 +183,13 @@ export function SampleDataGenerator() {
       generator: generateHighDimensionalData,
       dimensions: '8차원',
       samples: 50
+    },
+    {
+      title: '극값 테스트 데이터',
+      description: '매우 작은 값, 큰 값, 음수, 상수 등 다양한 범위의 데이터',
+      generator: generateExtremeValueData,
+      dimensions: '5차원',
+      samples: 30
     }
   ];
 
@@ -160,7 +205,7 @@ export function SampleDataGenerator() {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {sampleDatasets.map((dataset, index) => (
             <div key={index} className="p-4 border rounded-lg hover:bg-muted/20 transition-colors">
               <h4 className="font-semibold mb-2">{dataset.title}</h4>

@@ -100,44 +100,55 @@ export function VisualizationPanel() {
     }
   }, [dimensionCount, unmappedVariables, parsedData]);
 
-  // Auto-play animation for sliders
+  // Auto-play animation for sliders (최적화된 버전)
   useEffect(() => {
     if (isAutoPlaying && sliderControls.length > 0) {
       let lastTime = 0;
+      let animationId: number;
+      
       const animate = (currentTime: number) => {
-        // 60fps로 제한 (약 16ms 간격)
-        if (currentTime - lastTime >= 16) {
-          setSliderControls(prev => prev.map(control => {
-            if (!control.isPlaying) return control;
-            
-            // 데이터 범위에 따른 애니메이션 속도 조절
-            const range = control.max - control.min;
-            const speedMultiplier = Math.max(0.5, Math.min(2, range / 10)); // 범위가 클수록 빠르게
-            const adjustedStep = control.step * speedMultiplier;
-            
-            let newValue = control.value + adjustedStep;
-            if (newValue > control.max) {
-              newValue = control.min;
-            }
-            return { ...control, value: newValue };
-          }));
+        // 30fps로 제한 (약 33ms 간격) - 성능 최적화
+        if (currentTime - lastTime >= 33) {
+          // 변경이 필요한 슬라이더만 찾아서 업데이트
+          const hasChanges = sliderControls.some(control => control.isPlaying);
+          
+          if (hasChanges) {
+            setSliderControls(prev => {
+              const newControls = prev.map(control => {
+                if (!control.isPlaying) return control;
+                
+                // 데이터 범위에 따른 애니메이션 속도 조절
+                const range = control.max - control.min;
+                const speedMultiplier = Math.max(0.3, Math.min(1.5, range / 20)); // 속도 조절
+                const adjustedStep = control.step * speedMultiplier;
+                
+                let newValue = control.value + adjustedStep;
+                if (newValue > control.max) {
+                  newValue = control.min;
+                }
+                return { ...control, value: newValue };
+              });
+              
+              return newControls;
+            });
+          }
           lastTime = currentTime;
         }
         
-        animationRef.current = requestAnimationFrame(animate);
+        animationId = requestAnimationFrame(animate);
       };
       
-      animationRef.current = requestAnimationFrame(animate);
+      animationId = requestAnimationFrame(animate);
+      
+      return () => {
+        if (animationId) {
+          cancelAnimationFrame(animationId);
+        }
+      };
     } else if (animationRef.current) {
       cancelAnimationFrame(animationRef.current);
       animationRef.current = null;
     }
-
-    return () => {
-      if (animationRef.current) {
-        cancelAnimationFrame(animationRef.current);
-      }
-    };
   }, [isAutoPlaying, sliderControls.length]);
 
   // Generate plot based on current configuration
@@ -267,9 +278,14 @@ export function VisualizationPanel() {
       setLayout({
         title: `3D Visualization: ${x}, ${y}, ${z}`,
         scene: {
-          xaxis: { title: x },
-          yaxis: { title: y },
-          zaxis: { title: z }
+          xaxis: { title: x, showgrid: true, showbackground: true, backgroundcolor: 'rgba(0,0,0,0.1)' },
+          yaxis: { title: y, showgrid: true, showbackground: true, backgroundcolor: 'rgba(0,0,0,0.1)' },
+          zaxis: { title: z, showgrid: true, showbackground: true, backgroundcolor: 'rgba(0,0,0,0.1)' },
+          camera: {
+            eye: { x: 1.5, y: 1.5, z: 1.5 }
+          },
+          dragmode: 'orbit', // 3D 회전 모드 명시적 설정
+          aspectmode: 'auto'
         },
         plot_bgcolor: 'rgba(0,0,0,0)',
         paper_bgcolor: 'rgba(0,0,0,0)',
@@ -620,7 +636,14 @@ export function VisualizationPanel() {
                 config={{
                   responsive: true,
                   displayModeBar: true,
-                  modeBarButtonsToRemove: ['pan2d', 'lasso2d']
+                  modeBarButtonsToRemove: dimensionCount >= 3 ? [] : ['pan2d', 'lasso2d'],
+                  toImageButtonOptions: {
+                    format: 'png',
+                    filename: 'hyperviz-plot',
+                    height: 600,
+                    width: 800,
+                    scale: 1
+                  }
                 }}
                 style={{ width: '100%', height: '100%' }}
               />

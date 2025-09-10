@@ -1,0 +1,39 @@
+<svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background with gradient -->
+  <defs>
+    <linearGradient id="bgGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#3B82F6;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#1E40AF;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="barGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#F59E0B;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#D97706;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Background circle with gradient -->
+  <circle cx="16" cy="16" r="16" fill="url(#bgGradient)"/>
+  
+  <!-- Chart bars representing data visualization -->
+  <rect x="6" y="20" width="2.5" height="8" fill="url(#barGradient)" rx="1.25"/>
+  <rect x="10" y="16" width="2.5" height="12" fill="url(#barGradient)" rx="1.25"/>
+  <rect x="14" y="12" width="2.5" height="16" fill="url(#barGradient)" rx="1.25"/>
+  <rect x="18" y="8" width="2.5" height="20" fill="url(#barGradient)" rx="1.25"/>
+  <rect x="22" y="14" width="2.5" height="14" fill="url(#barGradient)" rx="1.25"/>
+  
+  <!-- Trend line with glow effect -->
+  <path d="M6 20 L10 16 L14 12 L18 8 L22 14" stroke="#FEF3C7" stroke-width="2.5" fill="none" stroke-linecap="round" opacity="0.9"/>
+  
+  <!-- Data points with glow -->
+  <circle cx="6" cy="20" r="2" fill="#FEF3C7" opacity="0.9"/>
+  <circle cx="10" cy="16" r="2" fill="#FEF3C7" opacity="0.9"/>
+  <circle cx="14" cy="12" r="2" fill="#FEF3C7" opacity="0.9"/>
+  <circle cx="18" cy="8" r="2" fill="#FEF3C7" opacity="0.9"/>
+  <circle cx="22" cy="14" r="2" fill="#FEF3C7" opacity="0.9"/>
+  
+  <!-- H for HyperViz with better styling -->
+  <text x="16" y="7" font-family="Arial, sans-serif" font-size="9" font-weight="900" text-anchor="middle" fill="white" opacity="0.95">H</text>
+  
+  <!-- Subtle highlight -->
+  <circle cx="16" cy="16" r="15" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="1"/>
+</svg>

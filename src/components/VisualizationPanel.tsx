@@ -39,10 +39,14 @@ export function VisualizationPanel() {
   const unmappedVariables = headers.filter(h => !mappedVariables.includes(h));
   const dimensionCount = mappedVariables.length;
 
-  // Initialize slider controls for 5+ dimensions
+  // Initialize slider controls for 4+ dimensions (개선된 로직)
   useEffect(() => {
-    if (dimensionCount >= 5) {
-      const extraVariables = unmappedVariables.slice(0, Math.min(3, unmappedVariables.length));
+    // 4차원 이상에서 슬라이더 활성화 (기존 5차원에서 변경)
+    if (dimensionCount >= 4) {
+      // 매핑되지 않은 변수들 중에서 슬라이더로 제어할 변수 선택
+      const maxSliderCount = Math.min(4, unmappedVariables.length); // 최대 4개 슬라이더
+      const extraVariables = unmappedVariables.slice(0, maxSliderCount);
+      
       const controls = extraVariables.map(variable => {
         const values = parsedData.map(d => d[variable]).filter(v => 
           v !== null && v !== undefined && !isNaN(v) && isFinite(v)
@@ -78,7 +82,7 @@ export function VisualizationPanel() {
         
         // 데이터 범위에 따른 적절한 스텝 크기 계산
         const range = max - min;
-        const step = range / 200; // 더 세밀한 제어를 위해 200 스텝
+        const step = range / 100; // 100 스텝으로 조정 (너무 세밀하지 않게)
         
         return {
           variable,
@@ -90,6 +94,9 @@ export function VisualizationPanel() {
         };
       });
       setSliderControls(controls);
+    } else {
+      // 4차원 미만일 때는 슬라이더 비활성화
+      setSliderControls([]);
     }
   }, [dimensionCount, unmappedVariables, parsedData]);
 
@@ -139,9 +146,10 @@ export function VisualizationPanel() {
 
     const { x, y, z, color, size } = visualizationMapping;
     
-    // Filter data based on slider values
+    // Filter data based on slider values (개선된 필터링 로직)
     let filteredData = parsedData;
     if (sliderControls.length > 0) {
+      // 각 슬라이더별로 필터링 적용
       filteredData = parsedData.filter(row => {
         return sliderControls.every(control => {
           const value = row[control.variable];
@@ -151,16 +159,46 @@ export function VisualizationPanel() {
             return false;
           }
           
-          // 동적 허용 오차 계산 (데이터 범위에 따라)
+          // 동적 허용 오차 계산 (데이터 범위와 분산 고려)
           const range = control.max - control.min;
-          const tolerance = Math.max(range * 0.05, Math.abs(control.step) * 2); // 최소 5% 또는 스텝의 2배
+          const dataVariance = parsedData.map(d => d[control.variable])
+            .filter(v => !isNaN(v) && isFinite(v))
+            .reduce((sum, v, i, arr) => {
+              const mean = arr.reduce((s, val) => s + val, 0) / arr.length;
+              return sum + Math.pow(v - mean, 2);
+            }, 0) / parsedData.length;
+          
+          const stdDev = Math.sqrt(dataVariance);
+          // 허용 오차를 데이터의 표준편차와 범위를 고려하여 계산
+          const tolerance = Math.max(
+            range * 0.1, // 범위의 10%
+            stdDev * 0.5, // 표준편차의 50%
+            Math.abs(control.step) * 3 // 스텝의 3배
+          );
           
           return Math.abs(value - control.value) <= tolerance;
         });
       });
       
-      // 필터링된 데이터가 너무 적으면 원본 데이터 사용
-      if (filteredData.length < parsedData.length * 0.1) {
+      // 필터링된 데이터가 너무 적으면 허용 오차를 늘려서 재시도
+      if (filteredData.length < parsedData.length * 0.05) { // 5% 미만이면
+        filteredData = parsedData.filter(row => {
+          return sliderControls.every(control => {
+            const value = row[control.variable];
+            if (value === null || value === undefined || isNaN(value) || !isFinite(value)) {
+              return false;
+            }
+            
+            const range = control.max - control.min;
+            const tolerance = range * 0.2; // 허용 오차를 20%로 늘림
+            
+            return Math.abs(value - control.value) <= tolerance;
+          });
+        });
+      }
+      
+      // 그래도 데이터가 너무 적으면 원본 데이터 사용
+      if (filteredData.length < parsedData.length * 0.02) { // 2% 미만이면
         filteredData = parsedData;
       }
     }
@@ -356,7 +394,7 @@ export function VisualizationPanel() {
             </Dialog>
           </CardTitle>
           <CardDescription>
-            시각화할 변수들을 선택하세요. 최대 4차원까지 직접 시각화 가능하며, 5차원 이상은 슬라이더로 제어됩니다.
+            시각화할 변수들을 선택하세요. 최대 3차원까지 직접 시각화 가능하며, 4차원 이상은 슬라이더로 제어됩니다.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -476,7 +514,7 @@ export function VisualizationPanel() {
             </CardTitle>
             <CardDescription>
               슬라이더를 사용하여 추가 차원의 값을 조절하고 데이터를 필터링하세요. 
-              자동재생을 사용하면 차원을 자동으로 탐색할 수 있습니다.
+              자동재생을 사용하면 차원을 자동으로 탐색할 수 있습니다. (4차원 이상에서 활성화)
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">

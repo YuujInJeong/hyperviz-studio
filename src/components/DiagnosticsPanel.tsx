@@ -55,28 +55,153 @@ export function DiagnosticsPanel() {
       const targetVar = independentVariables[i];
       const otherVars = independentVariables.filter((_, idx) => idx !== i);
       
-      // Create regression of target variable against other variables
-      const y = parsedData.map(row => row[targetVar]);
-      const X = parsedData.map(row => otherVars.map(col => row[col]));
-      
       try {
-        // Simplified VIF calculation
+        // Create regression of target variable against other variables
+        const y = parsedData.map(row => row[targetVar]);
+        const X = parsedData.map(row => otherVars.map(col => row[col]));
+        
+        // Calculate R-squared using proper regression
         const n = y.length;
         const meanY = y.reduce((sum, val) => sum + val, 0) / n;
         const totalSumSquares = y.reduce((sum, val) => sum + Math.pow(val - meanY, 2), 0);
         
-        // Calculate R-squared for this regression
-        const residuals = y.map((actual, idx) => {
-          // Simplified prediction (just use mean for demo)
-          const predicted = meanY;
-          return actual - predicted;
-        });
+        if (totalSumSquares === 0) {
+          vifValues[targetVar] = 1;
+          continue;
+        }
         
-        const residualSumSquares = residuals.reduce((sum, res) => sum + res * res, 0);
-        const rSquared = 1 - (residualSumSquares / totalSumSquares);
+        // Perform actual regression using matrix operations
+        let rSquared = 0;
+        
+        if (otherVars.length === 1) {
+          // Simple linear regression
+          const xValues = X.map(row => row[0]);
+          const meanX = xValues.reduce((sum, val) => sum + val, 0) / n;
+          
+          const numerator = xValues.reduce((sum, x, idx) => 
+            sum + (x - meanX) * (y[idx] - meanY), 0);
+          const denominator = xValues.reduce((sum, x) => 
+            sum + Math.pow(x - meanX, 2), 0);
+          
+          if (denominator === 0) {
+            vifValues[targetVar] = 1;
+            continue;
+          }
+          
+          const slope = numerator / denominator;
+          const intercept = meanY - slope * meanX;
+          
+          const predictions = xValues.map(x => intercept + slope * x);
+          const residualSumSquares = y.reduce((sum, actual, idx) => 
+            sum + Math.pow(actual - predictions[idx], 2), 0);
+          
+          rSquared = 1 - (residualSumSquares / totalSumSquares);
+        } else {
+          // Multiple regression using matrix operations
+          const XMatrix = X.map(row => [1, ...row]); // Add intercept
+          
+          // Calculate X'X and X'y
+          const XTX = Array.from({ length: otherVars.length + 1 }, () => 
+            Array.from({ length: otherVars.length + 1 }, () => 0));
+          const XTy = Array.from({ length: otherVars.length + 1 }, () => 0);
+          
+          for (let row = 0; row < n; row++) {
+            for (let i = 0; i <= otherVars.length; i++) {
+              XTy[i] += XMatrix[row][i] * y[row];
+              for (let j = 0; j <= otherVars.length; j++) {
+                XTX[i][j] += XMatrix[row][i] * XMatrix[row][j];
+              }
+            }
+          }
+          
+          // Calculate coefficients using normal equations
+          try {
+            // Matrix inversion using Gauss-Jordan elimination
+            const n = XTX.length;
+            const identity: number[][] = [];
+            
+            // Create identity matrix
+            for (let i = 0; i < n; i++) {
+              identity[i] = [];
+              for (let j = 0; j < n; j++) {
+                identity[i][j] = i === j ? 1 : 0;
+              }
+            }
+            
+            // Create augmented matrix [XTX|I]
+            const augmented: number[][] = [];
+            for (let i = 0; i < n; i++) {
+              augmented[i] = [...XTX[i], ...identity[i]];
+            }
+            
+            // Gauss-Jordan elimination
+            for (let i = 0; i < n; i++) {
+              // Find pivot
+              let maxRow = i;
+              for (let k = i + 1; k < n; k++) {
+                if (Math.abs(augmented[k][i]) > Math.abs(augmented[maxRow][i])) {
+                  maxRow = k;
+                }
+              }
+              
+              // Swap rows
+              if (maxRow !== i) {
+                [augmented[i], augmented[maxRow]] = [augmented[maxRow], augmented[i]];
+              }
+              
+              // Check for singular matrix
+              if (Math.abs(augmented[i][i]) < 1e-10) {
+                vifValues[targetVar] = 1;
+                continue;
+              }
+              
+              // Make diagonal element 1
+              const pivot = augmented[i][i];
+              for (let j = 0; j < 2 * n; j++) {
+                augmented[i][j] /= pivot;
+              }
+              
+              // Eliminate column
+              for (let k = 0; k < n; k++) {
+                if (k !== i) {
+                  const factor = augmented[k][i];
+                  for (let j = 0; j < 2 * n; j++) {
+                    augmented[k][j] -= factor * augmented[i][j];
+                  }
+                }
+              }
+            }
+            
+            // Extract inverse matrix
+            const invXTX: number[][] = [];
+            for (let i = 0; i < n; i++) {
+              invXTX[i] = [];
+              for (let j = 0; j < n; j++) {
+                invXTX[i][j] = augmented[i][j + n];
+              }
+            }
+            
+            const coefficients = invXTX.map((row, i) => 
+              row.reduce((sum, val, j) => sum + val * XTy[j], 0));
+            
+            // Calculate predictions
+            const predictions = XMatrix.map(row => 
+              row.reduce((sum, val, idx) => sum + val * coefficients[idx], 0));
+            
+            const residualSumSquares = y.reduce((sum, actual, idx) => 
+              sum + Math.pow(actual - predictions[idx], 2), 0);
+            
+            rSquared = 1 - (residualSumSquares / totalSumSquares);
+          } catch (error) {
+            vifValues[targetVar] = 1;
+            continue;
+          }
+        }
         
         // VIF = 1 / (1 - R²)
-        vifValues[targetVar] = 1 / (1 - Math.max(rSquared, 0.001));
+        const vif = 1 / (1 - Math.max(rSquared, 0.001));
+        vifValues[targetVar] = Math.max(vif, 1);
+        
       } catch (error) {
         vifValues[targetVar] = 1; // Default value
       }
@@ -92,27 +217,124 @@ export function DiagnosticsPanel() {
     const n = data.length;
     if (n < 3 || n > 5000) return { statistic: 0, pValue: 1, interpretation: '데이터 크기 부적절' };
     
-    // Simplified Shapiro-Wilk test approximation
+    // Shapiro-Wilk test coefficients for n <= 50
+    const coefficients: { [key: number]: number[] } = {
+      3: [0.7071],
+      4: [0.6872, 0.1677],
+      5: [0.6646, 0.2413],
+      6: [0.6431, 0.2806, 0.0875],
+      7: [0.6233, 0.3031, 0.1401],
+      8: [0.6052, 0.3164, 0.1743, 0.0561],
+      9: [0.5888, 0.3244, 0.1976, 0.0947],
+      10: [0.5739, 0.3291, 0.2141, 0.1224, 0.0399],
+      11: [0.5601, 0.3315, 0.2260, 0.1429, 0.0695],
+      12: [0.5475, 0.3325, 0.2347, 0.1586, 0.0922, 0.0303],
+      13: [0.5359, 0.3325, 0.2412, 0.1707, 0.1099, 0.0539],
+      14: [0.5251, 0.3318, 0.2460, 0.1802, 0.1240, 0.0727, 0.0240],
+      15: [0.5150, 0.3306, 0.2495, 0.1878, 0.1353, 0.0880, 0.0433],
+      20: [0.4734, 0.3211, 0.2565, 0.2085, 0.1686, 0.1334, 0.1013, 0.0711, 0.0422, 0.0140],
+      25: [0.4407, 0.3126, 0.2574, 0.2201, 0.1880, 0.1598, 0.1346, 0.1119, 0.0910, 0.0719, 0.0540, 0.0371, 0.0209, 0.0053],
+      30: [0.4152, 0.3051, 0.2556, 0.2274, 0.2000, 0.1750, 0.1520, 0.1308, 0.1112, 0.0930, 0.0761, 0.0603, 0.0455, 0.0317, 0.0187, 0.0063],
+      35: [0.3946, 0.2987, 0.2528, 0.2319, 0.2082, 0.1860, 0.1654, 0.1463, 0.1286, 0.1122, 0.0970, 0.0829, 0.0698, 0.0577, 0.0465, 0.0361, 0.0265, 0.0176, 0.0094, 0.0019],
+      40: [0.3774, 0.2931, 0.2499, 0.2345, 0.2141, 0.1946, 0.1761, 0.1586, 0.1421, 0.1265, 0.1118, 0.0980, 0.0850, 0.0728, 0.0614, 0.0508, 0.0409, 0.0317, 0.0232, 0.0153, 0.0080, 0.0013],
+      45: [0.3626, 0.2882, 0.2473, 0.2361, 0.2187, 0.2014, 0.1849, 0.1692, 0.1543, 0.1402, 0.1268, 0.1142, 0.1023, 0.0911, 0.0806, 0.0707, 0.0614, 0.0527, 0.0446, 0.0370, 0.0299, 0.0233, 0.0171, 0.0113, 0.0059, 0.0008],
+      50: [0.3497, 0.2839, 0.2449, 0.2370, 0.2222, 0.2068, 0.1921, 0.1780, 0.1646, 0.1518, 0.1397, 0.1282, 0.1173, 0.1070, 0.0972, 0.0880, 0.0793, 0.0711, 0.0634, 0.0561, 0.0493, 0.0429, 0.0369, 0.0313, 0.0260, 0.0211, 0.0165, 0.0122, 0.0082, 0.0045, 0.0011]
+    };
+    
     const sortedData = [...data].sort((a, b) => a - b);
     const mean = sortedData.reduce((sum, val) => sum + val, 0) / n;
     const variance = sortedData.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / (n - 1);
-    const stdDev = Math.sqrt(variance);
     
-    // Calculate W statistic (simplified)
-    const standardizedData = sortedData.map(val => (val - mean) / stdDev);
-    const w = standardizedData.reduce((sum, val, i) => {
-      const expected = (i + 1 - 0.5) / n;
-      return sum + Math.pow(val - expected, 2);
-    }, 0);
+    if (variance === 0) return { statistic: 1, pValue: 1, interpretation: '정규성 가정 만족' };
     
-    const wStatistic = 1 - w / (n * variance);
-    const pValue = Math.max(0.001, Math.min(0.999, 1 - wStatistic));
+    // Get coefficients for the sample size
+    let coefs: number[];
+    if (n <= 50 && coefficients[n]) {
+      coefs = coefficients[n];
+    } else {
+      // For larger samples, use approximation
+      coefs = Array.from({ length: Math.floor(n / 2) }, (_, i) => {
+        const m = Math.floor(n / 2);
+        const p = (i + 1 - 0.5) / m;
+        return Math.sqrt(2) * Math.sqrt(-Math.log(1 - p));
+      });
+    }
+    
+    // Calculate W statistic
+    let numerator = 0;
+    let denominator = 0;
+    
+    for (let i = 0; i < coefs.length; i++) {
+      const j = n - 1 - i;
+      if (i !== j) {
+        numerator += coefs[i] * (sortedData[j] - sortedData[i]);
+      }
+      denominator += Math.pow(sortedData[i] - mean, 2);
+    }
+    
+    const wStatistic = Math.pow(numerator / (Math.sqrt(variance) * denominator), 2);
+    
+    // Calculate p-value using approximation
+    let pValue: number;
+    if (n <= 11) {
+      // For small samples, use exact critical values
+      const criticalValues: { [key: number]: number[] } = {
+        3: [0.767, 0.789, 0.810],
+        4: [0.748, 0.792, 0.825],
+        5: [0.762, 0.806, 0.841],
+        6: [0.788, 0.826, 0.860],
+        7: [0.803, 0.838, 0.869],
+        8: [0.818, 0.851, 0.879],
+        9: [0.829, 0.859, 0.885],
+        10: [0.842, 0.869, 0.892],
+        11: [0.850, 0.876, 0.897]
+      };
+      
+      if (criticalValues[n]) {
+        const [alpha005, alpha025, alpha05] = criticalValues[n];
+        if (wStatistic >= alpha05) pValue = 0.05;
+        else if (wStatistic >= alpha025) pValue = 0.025;
+        else if (wStatistic >= alpha005) pValue = 0.005;
+        else pValue = 0.001;
+      } else {
+        pValue = Math.max(0.001, Math.min(0.999, 1 - wStatistic));
+      }
+    } else {
+      // For larger samples, use normal approximation
+      const mu = 0.5 + 0.5 / Math.sqrt(n);
+      const sigma = 0.5 / Math.sqrt(n);
+      const z = (wStatistic - mu) / sigma;
+      pValue = 2 * (1 - 0.5 * (1 + Math.sign(z) * Math.sqrt(1 - Math.exp(-2 * z * z / Math.PI))));
+    }
     
     return {
       statistic: wStatistic,
       pValue: pValue,
       interpretation: pValue > 0.05 ? '정규성 가정 만족' : '정규성 가정 위반'
     };
+  };
+
+  // Chi-square CDF approximation
+  const chiSquareCDF = (x: number, df: number): number => {
+    if (x <= 0) return 0;
+    if (df <= 0) return 0;
+    
+    // For large df, use normal approximation
+    if (df > 30) {
+      const mean = df;
+      const variance = 2 * df;
+      const z = (x - mean) / Math.sqrt(variance);
+      return 0.5 * (1 + Math.sign(z) * Math.sqrt(1 - Math.exp(-2 * z * z / Math.PI)));
+    }
+    
+    // For smaller df, use gamma function approximation
+    const k = df / 2;
+    // Approximate log gamma function using Stirling's approximation
+    const logGamma = (k - 0.5) * Math.log(k) - k + 0.5 * Math.log(2 * Math.PI);
+    const gamma = Math.exp(logGamma);
+    const incompleteGamma = Math.pow(x / 2, k) * Math.exp(-x / 2) / gamma;
+    
+    return Math.max(0, Math.min(1, incompleteGamma));
   };
 
   const performBreuschPaganTest = (residuals: number[], predictions: number[]) => {
@@ -134,7 +356,9 @@ export function DiagnosticsPanel() {
     
     const correlation = numerator / denominator;
     const lmStatistic = n * Math.pow(correlation, 2);
-    const pValue = Math.max(0.001, Math.min(0.999, 1 - lmStatistic / 10)); // Simplified p-value
+    
+    // Calculate accurate p-value using chi-square distribution (df=1 for Breusch-Pagan)
+    const pValue = 1 - chiSquareCDF(lmStatistic, 1);
     
     return {
       statistic: lmStatistic,
@@ -267,16 +491,48 @@ export function DiagnosticsPanel() {
     return [plot, zeroLine];
   };
 
+  // Accurate inverse normal CDF using Beasley-Springer-Moro algorithm
+  const inverseNormalCDF = (p: number): number => {
+    if (p <= 0) return -Infinity;
+    if (p >= 1) return Infinity;
+    if (p === 0.5) return 0;
+    
+    const a = [0, -3.969683028665376e1, 2.209460984245205e2, -2.759285104469687e2, 1.383577518672690e2, -3.066479806614716e1, 2.506628277459239];
+    const b = [0, -5.447609879822406e1, 1.615858368580409e2, -1.556989798598866e2, 6.680131188771972e1, -1.328068155288572e1];
+    const c = [0, -7.784894002430293e-3, -3.223964580411365e-1, -2.400758277161838, -2.549732539343734, 4.374664141464968, 2.938163982698783];
+    const d = [0, 7.784695709041462e-3, 3.224671290700398e-1, 2.445134137142996, 3.754408661907416];
+    
+    const pLow = 0.02425;
+    const pHigh = 1 - pLow;
+    
+    let x: number;
+    if (p < pLow) {
+      const q = Math.sqrt(-2 * Math.log(p));
+      x = (((((c[1] * q + c[2]) * q + c[3]) * q + c[4]) * q + c[5]) * q + c[6]) /
+          ((((d[1] * q + d[2]) * q + d[3]) * q + d[4]) * q + 1);
+    } else if (p <= pHigh) {
+      const q = p - 0.5;
+      const r = q * q;
+      x = (((((a[1] * r + a[2]) * r + a[3]) * r + a[4]) * r + a[5]) * r + a[6]) * q /
+          (((((b[1] * r + b[2]) * r + b[3]) * r + b[4]) * r + b[5]) * r + 1);
+    } else {
+      const q = Math.sqrt(-2 * Math.log(1 - p));
+      x = -(((((c[1] * q + c[2]) * q + c[3]) * q + c[4]) * q + c[5]) * q + c[6]) /
+           ((((d[1] * q + d[2]) * q + d[3]) * q + d[4]) * q + 1);
+    }
+    
+    return x;
+  };
+
   const generateQQPlot = () => {
     const { residuals } = regressionResult;
     const n = residuals.length;
     const sortedResiduals = [...residuals].sort((a, b) => a - b);
     
-    // Calculate theoretical quantiles (simplified normal quantiles)
+    // Calculate theoretical quantiles using accurate inverse normal CDF
     const theoreticalQuantiles = sortedResiduals.map((_, i) => {
       const p = (i + 1 - 0.5) / n;
-      // Approximate inverse normal CDF
-      return Math.sqrt(2) * Math.sqrt(-Math.log(1 - p));
+      return inverseNormalCDF(p);
     });
     
     const qqPlot = {

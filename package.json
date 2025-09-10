@@ -1,7 +1,8 @@
 {
-  "name": "vite_react_shadcn_ts",
+  "name": "hyperviz-studio",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
+  "description": "HyperViz Studio - 고급 데이터 시각화 및 회귀 분석 플랫폼",
   "type": "module",
   "scripts": {
     "dev": "vite",

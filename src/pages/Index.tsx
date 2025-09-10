@@ -3,10 +3,11 @@ import { DataInput } from '@/components/DataInput';
 import { VisualizationPanel } from '@/components/VisualizationPanel';
 import { RegressionAnalysis } from '@/components/RegressionAnalysis';
 import { DiagnosticsPanel } from '@/components/DiagnosticsPanel';
+import { AdvancedAnalytics } from '@/components/AdvancedAnalytics';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Database, BarChart3, Calculator, Activity, Github, BookOpen } from 'lucide-react';
+import { Database, BarChart3, Calculator, Activity, Brain, Github, BookOpen } from 'lucide-react';
 
 const Index = () => {
   const { activeTab, setActiveTab, reset } = useDataStore();
@@ -35,6 +36,12 @@ const Index = () => {
       label: '진단',
       icon: Activity,
       description: '모델 진단 및 검증'
+    },
+    {
+      value: 'advanced',
+      label: '고급 분석',
+      icon: Brain,
+      description: 'AI 기반 고급 통계 분석'
     }
   ];
 
@@ -61,7 +68,7 @@ const Index = () => {
                 초기화
               </Button>
               <Button variant="ghost" size="sm" asChild>
-                <a href="https://github.com" target="_blank" rel="noopener noreferrer">
+                <a href="https://github.com/YuujInJeong/hyperviz-studio" target="_blank" rel="noopener noreferrer">
                   <Github className="h-4 w-4" />
                 </a>
               </Button>
@@ -83,8 +90,8 @@ const Index = () => {
         </div>
 
         {/* Main Application */}
-        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as any)} className="w-full">
-          <TabsList className="grid w-full grid-cols-4 mb-8 bg-card/80 backdrop-blur-sm">
+        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'input' | 'visualization' | 'regression' | 'diagnostics' | 'advanced')} className="w-full">
+          <TabsList className="grid w-full grid-cols-5 mb-8 bg-card/80 backdrop-blur-sm">
             {tabConfigs.map((tab) => {
               const Icon = tab.icon;
               return (
@@ -114,6 +121,10 @@ const Index = () => {
 
           <TabsContent value="diagnostics" className="mt-0">
             <DiagnosticsPanel />
+          </TabsContent>
+
+          <TabsContent value="advanced" className="mt-0">
+            <AdvancedAnalytics />
           </TabsContent>
         </Tabs>
       </main>

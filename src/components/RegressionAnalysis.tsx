@@ -411,7 +411,7 @@ export function RegressionAnalysis() {
                   </table>
                 </div>
                 <div className="mt-3 text-xs text-muted-foreground">
-                  <p>• p값 &lt; 0.05인 경우 통계적으로 유의함 (α = 0.05)</p>
+                  <p>• p값 {'<'} 0.05인 경우 통계적으로 유의함 (α = 0.05)</p>
                   <p>• F통계량: {regressionResult.fStatistic.toFixed(4)}</p>
                 </div>
               </div>

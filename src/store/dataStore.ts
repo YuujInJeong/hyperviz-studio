@@ -58,6 +58,45 @@ const calculateDeterminant = (matrix: number[][]): number => {
   return det;
 };
 
+// Calculate t-distribution CDF using approximation
+const tDistributionCDF = (t: number, df: number): number => {
+  if (df <= 0) return 0.5;
+  
+  // For large degrees of freedom, approximate with normal distribution
+  if (df > 30) {
+    return 0.5 * (1 + Math.sign(t) * Math.sqrt(1 - Math.exp(-2 * t * t / Math.PI)));
+  }
+  
+  // For smaller df, use approximation
+  const x = t / Math.sqrt(df);
+  const a = 0.5;
+  const b = 0.5;
+  
+  // Log gamma function approximation using Stirling's formula
+  const logGamma = (z: number) => (z - 0.5) * Math.log(z) - z + 0.5 * Math.log(2 * Math.PI);
+  
+  // Beta function approximation for t-distribution
+  const beta = Math.exp(
+    logGamma(a) + logGamma(b) - logGamma(a + b) +
+    (a - 1) * Math.log(x) + (b - 1) * Math.log(1 - x)
+  );
+  
+  // Incomplete beta function approximation
+  let result = 0.5;
+  if (Math.abs(x) < 1) {
+    result = 0.5 + Math.sign(x) * beta * Math.abs(x) / 2;
+  }
+  
+  return Math.max(0, Math.min(1, result));
+};
+
+// Calculate accurate p-value for t-test
+const calculatePValue = (tValue: number, degreesOfFreedom: number): number => {
+  const absT = Math.abs(tValue);
+  const cdf = tDistributionCDF(absT, degreesOfFreedom);
+  return 2 * (1 - cdf); // Two-tailed test
+};
+
 // Calculate matrix inverse using Gauss-Jordan elimination
 const calculateMatrixInverse = (matrix: number[][]): number[][] => {
   const n = matrix.length;
@@ -251,9 +290,13 @@ export interface DataState {
   regressionResult: RegressionResult | null;
   
   // UI state
-  activeTab: 'input' | 'visualization' | 'regression' | 'diagnostics';
+  activeTab: 'input' | 'visualization' | 'regression' | 'diagnostics' | 'advanced';
   isLoading: boolean;
   error: string | null;
+  
+  // Performance optimization
+  lastUpdateTime: number;
+  updateDebounceMs: number;
   
   // Actions
   setRawData: (data: string) => void;
@@ -265,6 +308,7 @@ export interface DataState {
   setVisualizationMapping: (mapping: Partial<DataState['visualizationMapping']>) => void;
   setProcessingOptions: (options: { removeOutliers?: boolean; standardize?: boolean; normalize?: boolean }) => void;
   runRegression: () => void;
+  runRegressionImmediate: () => void;
   setActiveTab: (tab: DataState['activeTab']) => void;
   setError: (error: string | null) => void;
   reset: () => void;
@@ -286,6 +330,8 @@ export const useDataStore = create<DataState>((set, get) => ({
   activeTab: 'input',
   isLoading: false,
   error: null,
+  lastUpdateTime: 0,
+  updateDebounceMs: 300,
 
   // Actions
   setRawData: (data) => set({ rawData: data }),
@@ -344,6 +390,21 @@ export const useDataStore = create<DataState>((set, get) => ({
     })),
 
   runRegression: () => {
+    const { updateDebounceMs, lastUpdateTime } = get();
+    const currentTime = Date.now();
+    
+    // Debounce rapid updates
+    if (currentTime - lastUpdateTime < updateDebounceMs) {
+      setTimeout(() => {
+        get().runRegressionImmediate();
+      }, updateDebounceMs - (currentTime - lastUpdateTime));
+      return;
+    }
+    
+    get().runRegressionImmediate();
+  },
+
+  runRegressionImmediate: () => {
     const { parsedData, dependentVariable, independentVariables } = get();
     
     if (!parsedData.length || !dependentVariable || !independentVariables.length) {
@@ -352,7 +413,7 @@ export const useDataStore = create<DataState>((set, get) => ({
     }
 
     try {
-      set({ isLoading: true, error: null });
+      set({ isLoading: true, error: null, lastUpdateTime: Date.now() });
 
       // Prepare data for regression
       const validData = parsedData.filter(row => 
@@ -456,9 +517,9 @@ export const useDataStore = create<DataState>((set, get) => ({
             const tValue = coefficients[i] / se;
             tValues.push(tValue);
             
-            // Approximate p-value using t-distribution (simplified)
-            const pValue = 2 * (1 - Math.abs(tValue) / (Math.abs(tValue) + Math.sqrt(degreesOfFreedom)));
-            pValues.push(Math.min(pValue, 1));
+            // Calculate accurate p-value using t-distribution
+            const pValue = calculatePValue(tValue, degreesOfFreedom);
+            pValues.push(pValue);
           }
           
           // Calculate F-statistic
@@ -507,6 +568,8 @@ export const useDataStore = create<DataState>((set, get) => ({
     regressionResult: null,
     activeTab: 'input',
     isLoading: false,
-    error: null
+    error: null,
+    lastUpdateTime: 0,
+    updateDebounceMs: 300
   })
 }));

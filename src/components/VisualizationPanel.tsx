@@ -10,6 +10,13 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { BarChart3, Layers, Eye, Settings2, Play, Pause, HelpCircle, Info } from 'lucide-react';
 import Plot from 'react-plotly.js';
 
+// Constants
+const MIN_DIMENSIONS_FOR_SLIDERS = 4;
+const MAX_SLIDER_COUNT = 4;
+const ANIMATION_FPS = 30;
+const FRAME_INTERVAL = 1000 / ANIMATION_FPS;
+
+// Types
 interface SliderControl {
   variable: string;
   value: number;
@@ -18,6 +25,8 @@ interface SliderControl {
   step: number;
   isPlaying: boolean;
 }
+
+type PlaybackMode = 'sequential' | 'parallel' | 'individual';
 
 export function VisualizationPanel() {
   const { 
@@ -32,7 +41,7 @@ export function VisualizationPanel() {
   const [plotData, setPlotData] = useState<any[]>([]);
   const [layout, setLayout] = useState<any>({});
   const [isAutoPlaying, setIsAutoPlaying] = useState(false);
-  const [playbackMode, setPlaybackMode] = useState<'sequential' | 'parallel' | 'individual'>('sequential');
+  const [playbackMode, setPlaybackMode] = useState<PlaybackMode>('sequential');
   const animationRef = useRef<number | null>(null);
 
   // Calculate available dimensions
@@ -40,12 +49,10 @@ export function VisualizationPanel() {
   const unmappedVariables = headers.filter(h => !mappedVariables.includes(h));
   const dimensionCount = mappedVariables.length;
 
-  // Initialize slider controls for 4+ dimensions (개선된 로직)
+  // Initialize slider controls for 4+ dimensions
   useEffect(() => {
-    // 4차원 이상에서 슬라이더 활성화 (기존 5차원에서 변경)
-    if (dimensionCount >= 4) {
-      // 매핑되지 않은 변수들 중에서 슬라이더로 제어할 변수 선택
-      const maxSliderCount = Math.min(4, unmappedVariables.length); // 최대 4개 슬라이더
+    if (dimensionCount >= MIN_DIMENSIONS_FOR_SLIDERS) {
+      const maxSliderCount = Math.min(MAX_SLIDER_COUNT, unmappedVariables.length);
       const extraVariables = unmappedVariables.slice(0, maxSliderCount);
       
       const controls = extraVariables.map(variable => {
@@ -96,7 +103,6 @@ export function VisualizationPanel() {
       });
       setSliderControls(controls);
     } else {
-      // 4차원 미만일 때는 슬라이더 비활성화
       setSliderControls([]);
     }
   }, [dimensionCount, unmappedVariables, parsedData]);
@@ -110,8 +116,8 @@ export function VisualizationPanel() {
       let cycleProgress = 0;
       
       const animate = (currentTime: number) => {
-        // 30fps로 제한 (약 33ms 간격) - 성능 최적화
-        if (currentTime - lastTime >= 33) {
+        // Frame rate limiting for performance
+        if (currentTime - lastTime >= FRAME_INTERVAL) {
           const playingSliders = sliderControls.filter(control => control.isPlaying);
           
           if (playingSliders.length > 0) {
@@ -341,6 +347,10 @@ export function VisualizationPanel() {
           : control
       )
     );
+    // 즉시 플롯 업데이트를 위해 강제 리렌더링
+    setTimeout(() => {
+      generatePlotData();
+    }, 0);
   };
 
   const toggleSliderPlay = (variable: string) => {

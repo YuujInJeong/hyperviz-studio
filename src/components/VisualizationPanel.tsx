@@ -32,6 +32,7 @@ export function VisualizationPanel() {
   const [plotData, setPlotData] = useState<any[]>([]);
   const [layout, setLayout] = useState<any>({});
   const [isAutoPlaying, setIsAutoPlaying] = useState(false);
+  const [playbackMode, setPlaybackMode] = useState<'sequential' | 'parallel' | 'individual'>('sequential');
   const animationRef = useRef<number | null>(null);
 
   // Calculate available dimensions
@@ -100,33 +101,71 @@ export function VisualizationPanel() {
     }
   }, [dimensionCount, unmappedVariables, parsedData]);
 
-  // Auto-play animation for sliders (최적화된 버전)
+  // Smart auto-play animation for sliders
   useEffect(() => {
     if (isAutoPlaying && sliderControls.length > 0) {
       let lastTime = 0;
       let animationId: number;
+      let currentSliderIndex = 0;
+      let cycleProgress = 0;
       
       const animate = (currentTime: number) => {
         // 30fps로 제한 (약 33ms 간격) - 성능 최적화
         if (currentTime - lastTime >= 33) {
-          // 변경이 필요한 슬라이더만 찾아서 업데이트
-          const hasChanges = sliderControls.some(control => control.isPlaying);
+          const playingSliders = sliderControls.filter(control => control.isPlaying);
           
-          if (hasChanges) {
+          if (playingSliders.length > 0) {
             setSliderControls(prev => {
-              const newControls = prev.map(control => {
+              const newControls = prev.map((control, index) => {
                 if (!control.isPlaying) return control;
                 
-                // 데이터 범위에 따른 애니메이션 속도 조절
-                const range = control.max - control.min;
-                const speedMultiplier = Math.max(0.3, Math.min(1.5, range / 20)); // 속도 조절
-                const adjustedStep = control.step * speedMultiplier;
+                let shouldAnimate = false;
+                let speedMultiplier = 1;
                 
-                let newValue = control.value + adjustedStep;
-                if (newValue > control.max) {
-                  newValue = control.min;
+                // 재생 모드에 따른 애니메이션 로직
+                switch (playbackMode) {
+                  case 'sequential':
+                    // 순차적 재생: 한 번에 하나씩
+                    shouldAnimate = index === currentSliderIndex;
+                    if (shouldAnimate) {
+                      const range = control.max - control.min;
+                      const progress = (control.value - control.min) / range;
+                      if (progress >= 0.95) {
+                        // 현재 슬라이더가 끝에 도달하면 다음으로
+                        currentSliderIndex = (currentSliderIndex + 1) % playingSliders.length;
+                        return { ...control, value: control.min }; // 다음 슬라이더 시작
+                      }
+                    }
+                    break;
+                    
+                  case 'parallel':
+                    // 병렬 재생: 모든 슬라이더가 동시에
+                    shouldAnimate = true;
+                    speedMultiplier = 0.5; // 병렬이므로 속도 조절
+                    break;
+                    
+                  case 'individual':
+                    // 개별 재생: 각자 독립적으로
+                    shouldAnimate = true;
+                    // 각 슬라이더마다 다른 속도
+                    speedMultiplier = 0.3 + (index * 0.2);
+                    break;
                 }
-                return { ...control, value: newValue };
+                
+                if (shouldAnimate) {
+                  // 데이터 범위에 따른 애니메이션 속도 조절
+                  const range = control.max - control.min;
+                  const baseSpeed = Math.max(0.2, Math.min(1.0, range / 30));
+                  const adjustedStep = control.step * baseSpeed * speedMultiplier;
+                  
+                  let newValue = control.value + adjustedStep;
+                  if (newValue > control.max) {
+                    newValue = control.min;
+                  }
+                  return { ...control, value: newValue };
+                }
+                
+                return control;
               });
               
               return newControls;
@@ -149,7 +188,7 @@ export function VisualizationPanel() {
       cancelAnimationFrame(animationRef.current);
       animationRef.current = null;
     }
-  }, [isAutoPlaying, sliderControls.length]);
+  }, [isAutoPlaying, sliderControls.length, playbackMode]);
 
   // Generate plot based on current configuration
   useEffect(() => {
@@ -518,19 +557,32 @@ export function VisualizationPanel() {
             <CardTitle className="flex items-center gap-2">
               <Eye className="h-5 w-5 text-accent" />
               추가 차원 제어
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={toggleAutoPlay}
-                className="ml-auto"
-              >
-                {isAutoPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-                {isAutoPlaying ? '일시정지' : '자동재생'}
-              </Button>
+              <div className="ml-auto flex items-center gap-2">
+                {sliderControls.length > 1 && (
+                  <Select value={playbackMode} onValueChange={(value: any) => setPlaybackMode(value)}>
+                    <SelectTrigger className="w-32">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="sequential">순차적</SelectItem>
+                      <SelectItem value="parallel">병렬</SelectItem>
+                      <SelectItem value="individual">개별</SelectItem>
+                    </SelectContent>
+                  </Select>
+                )}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={toggleAutoPlay}
+                >
+                  {isAutoPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+                  {isAutoPlaying ? '일시정지' : '자동재생'}
+                </Button>
+              </div>
             </CardTitle>
             <CardDescription>
               슬라이더를 사용하여 추가 차원의 값을 조절하고 데이터를 필터링하세요. 
-              자동재생을 사용하면 차원을 자동으로 탐색할 수 있습니다. (4차원 이상에서 활성화)
+              자동재생 모드: <strong>순차적</strong>(하나씩), <strong>병렬</strong>(동시에), <strong>개별</strong>(독립적으로)
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
